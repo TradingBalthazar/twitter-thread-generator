@@ -51,16 +51,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const userId = userLookup.data.id;
     console.log(`Found user ID for @${username}: ${userId}`);
 
-    // Initialize variables for pagination
+    // Initialize variables for pagination and batching
     let paginationToken: string | undefined = undefined;
     let totalTweets = 0;
     const maxTweets = 1500; // Twitter API limit for historical data
-    const batchSize = 100; // Maximum per request
+    const batchSize = 100; // Maximum tweets per request/batch (Twitter API limit)
     const allTweets: HistoricalTweet[] = [];
     
-    // Twitter API v2 rate limit is 1500 tweets per user timeline
-    // and 15 requests per 15 minutes for this endpoint (180 requests per hour)
-    // We'll need to make multiple requests with pagination to get all tweets
+    // Batching strategy:
+    // 1. Each API call fetches a batch of up to 100 tweets (Twitter's max per request)
+    // 2. We'll make multiple API calls with pagination to fetch up to 1500 tweets total
+    // 3. Twitter API v2 rate limit is 15 requests per 15 minutes (180 per hour)
+    // 4. We store tweets in Redis as we fetch them to preserve partial results
     while (totalTweets < maxTweets) {
       console.log(`Fetching batch of tweets for @${username}, current total: ${totalTweets}`);
       
@@ -83,7 +85,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         
         // Process tweets in this batch
-        for (const tweet of userTimeline.data.data) {
+        const batchTweets = userTimeline.data.data;
+        console.log(`Processing batch of ${batchTweets.length} tweets`);
+        
+        // Store batch number for tracking progress
+        const batchNumber = Math.floor(totalTweets / batchSize) + 1;
+        
+        // Process each tweet in the batch
+        for (const tweet of batchTweets) {
           const historicalTweet: HistoricalTweet = {
             id: tweet.id,
             text: tweet.text,
@@ -103,8 +112,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           await redis.set(`historicalTweet:${username}:${tweet.id}`, JSON.stringify(historicalTweet));
         }
         
-        totalTweets += userTimeline.data.meta.result_count;
-        console.log(`Fetched ${userTimeline.data.meta.result_count} tweets, total now: ${totalTweets}`);
+        // Update total tweets count
+        totalTweets += batchTweets.length;
+        
+        // Store progress after each batch
+        await redis.set(`historicalTweetsCount:${username}`, totalTweets.toString());
+        const tweetIds = allTweets.map(tweet => tweet.id);
+        await redis.set(`historicalTweetIds:${username}`, JSON.stringify(tweetIds));
+        
+        console.log(`Batch ${batchNumber} complete: Fetched ${batchTweets.length} tweets, total now: ${totalTweets}`);
         
         // Check if there are more tweets to fetch
         if (!userTimeline.data.meta.next_token) {
