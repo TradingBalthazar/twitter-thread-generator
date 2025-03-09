@@ -81,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error('Error updating impressions:', error);
     
     // Check if it's a rate limit error
-    if (error.code === 429) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 429) {
       console.error('Rate limit exceeded. Will retry on next scheduled run.');
       return res.status(429).json({
         error: 'Rate limit exceeded',
