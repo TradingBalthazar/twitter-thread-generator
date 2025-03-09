@@ -7,7 +7,21 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test-monitor": "ts-node --project tsconfig.json src/scripts/test-monitor.ts",
+    "test-openrouter": "ts-node --project tsconfig.json src/scripts/test-openrouter.ts",
+    "test-twitter": "ts-node --project tsconfig.json src/scripts/test-twitter.ts",
+    "test-kv": "ts-node --project tsconfig.json src/scripts/test-kv.ts",
+    "test-redis": "ts-node --project tsconfig.json src/scripts/test-redis.ts",
+    "use-mock-kv": "ts-node --project tsconfig.json src/scripts/use-mock-kv.ts",
+    "use-real-kv": "ts-node --project tsconfig.json src/scripts/use-real-kv.ts",
+    "use-mock-redis": "ts-node --project tsconfig.json src/scripts/use-mock-redis.ts",
+    "use-real-redis": "ts-node --project tsconfig.json src/scripts/use-real-redis.ts",
+    "clear-old-data": "ts-node --project tsconfig.json src/scripts/clear-old-data.ts",
+    "fix-tweet-data": "ts-node --project tsconfig.json src/scripts/fix-tweet-data.ts",
+    "setup-github-vercel": "./scripts/setup-github-vercel.sh",
+    "fetch-historical": "ts-node --project tsconfig.json src/scripts/fetch-historical.ts",
+    "generate-thread": "ts-node --project tsconfig.json src/scripts/generate-thread.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.0",
@@ -22,8 +36,12 @@
     "@radix-ui/react-toast": "^1.2.6",
     "@radix-ui/react-tooltip": "^1.1.8",
     "@tanstack/react-query": "^5.66.7",
+    "@upstash/redis": "^1.34.5",
+    "@vercel/kv": "^3.0.0",
+    "axios": "^1.8.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "lucide-react": "^0.475.0",
     "next": "^14.2.24",
     "react": "^18.3.1",
@@ -31,6 +49,7 @@
     "react-hook-form": "^7.54.2",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
+    "twitter-api-v2": "^1.20.2",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -43,6 +62,7 @@
     "eslint-plugin-only-warn": "^1.1.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }
