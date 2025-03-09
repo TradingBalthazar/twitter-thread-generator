@@ -58,18 +58,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const batchSize = 100; // Maximum per request
     const allTweets: HistoricalTweet[] = [];
     
-    // Twitter API rate limit is 15 requests per 15 minutes for this endpoint
+    // Twitter API v2 rate limit is 1500 tweets per user timeline
+    // and 15 requests per 15 minutes for this endpoint (180 requests per hour)
     // We'll need to make multiple requests with pagination to get all tweets
     while (totalTweets < maxTweets) {
       console.log(`Fetching batch of tweets for @${username}, current total: ${totalTweets}`);
       
       try {
+        // Use a more robust approach with error handling
         const userTimeline = await rwClient.v2.userTimeline(userId, {
           max_results: batchSize,
           pagination_token: paginationToken,
           "tweet.fields": [
-            "created_at", 
-            "public_metrics", 
+            "created_at",
+            "public_metrics",
             "text"
           ],
           exclude: ["retweets", "replies"] // Only get original tweets
@@ -116,7 +118,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (error) {
         console.error(`Error fetching tweets batch for @${username}:`, error);
-        // If we hit a rate limit, we'll break and return what we have so far
+        
+        // Check for specific Twitter API errors
+        if (typeof error === 'object' && error !== null) {
+          // Rate limit error
+          if ('code' in error && (error.code === 429 || error.code === 88)) {
+            console.error('Twitter API rate limit exceeded. Waiting before retrying...');
+            // Store what we have so far
+            if (totalTweets > 0) {
+              await redis.set(`historicalTweetsCount:${username}`, totalTweets.toString());
+              const tweetIds = allTweets.map(tweet => tweet.id);
+              await redis.set(`historicalTweetIds:${username}`, JSON.stringify(tweetIds));
+            }
+            
+            return res.status(429).json({
+              error: 'Twitter API rate limit exceeded',
+              message: 'Partial data has been stored. Try again later to fetch more tweets.',
+              count: totalTweets,
+              timestamp: new Date().toISOString()
+            });
+          }
+          
+          // Authentication error
+          if ('code' in error && (error.code === 401 || error.code === 403)) {
+            console.error('Twitter API authentication error. Check your API credentials.');
+            return res.status(401).json({
+              error: 'Twitter API authentication error',
+              message: 'Please check your Twitter API credentials.',
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+        
+        // For other errors, we'll break and return what we have so far
         break;
       }
     }
